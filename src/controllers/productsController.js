@@ -1,132 +1,77 @@
-import { Product } from '../models/product.js';
-import createHttpError from 'http-errors';
-import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
-import mongoose from 'mongoose';
+import { Product } from '../models/Product.js';
+import { Intake } from '../models/Intake.js';
+import { fetchProductFromOFF } from '../services/openFoodFactsService.js';
 
-const buildFilterConditions = (queryParams) => {
-  const { minPrice, maxPrice, category, search } = queryParams;
-  const filterConditions = [];
-
-  if (category) {
-    if (category.includes(',')) {
-      const categoryIds = category
-        .split(',')
-        .map((id) => id.trim())
-        .filter((id) => mongoose.Types.ObjectId.isValid(id));
-      if (categoryIds.length > 0) {
-        filterConditions.push({ category: { $in: categoryIds } });
-      }
-    } else if (mongoose.Types.ObjectId.isValid(category)) {
-      filterConditions.push({ category: category });
-    }
-  }
-
-  if (minPrice || maxPrice) {
-    const priceCondition = {};
-    if (minPrice) priceCondition.$gte = Number(minPrice);
-    if (maxPrice) priceCondition.$lte = Number(maxPrice);
-    filterConditions.push({ 'price.value': priceCondition });
-
-    if (search) {
-      filterConditions.push({ name: { $regex: search, $options: 'i' } });
-    }
-
-    return filterConditions.length > 0 ? { $and: filterConditions } : {};
-  }
-};
-
-export const getAllProducts = async (req, res, next) => {
+// GET /api/products/barcode/:barcode (Страница 2 -> Страница 3)
+export const getProductByBarcode = async (req, res, next) => {
   try {
-    const page = Number(req.query.page) || 1;
-    const perPage = Number(req.query.perPage) || 5;
-    const skip = (page - 1) * perPage;
+    const { barcode } = req.params;
 
-    const filters = buildFilterConditions(req.query);
+    // 1. Ищем в локальной базе
+    let product = await Product.findOne({ barcode });
 
-    const [totalItems, products] = await Promise.all([
-      Product.countDocuments(filters),
-      Product.find(filters).skip(skip).limit(perPage),
-    ]);
+    // 2. Если в локальной базе нет — ищем во внешнем API OpenFoodFacts
+    if (!product) {
+      const offProduct = await fetchProductFromOFF(barcode);
 
-    const totalPages = Math.ceil(totalItems / perPage);
+      if (!offProduct) {
+        return res.status(404).json({
+          status: 'error',
+          message:
+            'Товар с таким штрихкодом не найден ни в локальной базе, ни в OpenFoodFacts',
+        });
+      }
 
-    res.status(200).json({
-      page,
-      perPage,
-      totalItems,
-      totalPages,
-      products,
+      // Опционально: Кэшируем/сохраняем найденный товар из OFF в нашу локальную БД
+      product = await Product.create({
+        name: offProduct.name,
+        barcode: offProduct.barcode,
+        brand: offProduct.brand,
+        imageUrl: offProduct.imageUrl || 'https://via.placeholder.com/150', // Заглушка если нет картинки
+        source: 'OPEN_FOOD_FACTS',
+      });
+    }
+
+    // 3. Возвращаем единый чистый объект для Страницы 3
+    return res.status(200).json({
+      status: 'success',
+      data: {
+        id: product._id,
+        name: product.name,
+        barcode: product.barcode,
+        brand: product.brand,
+        imageUrl: product.imageUrl,
+      },
     });
   } catch (error) {
     next(error);
   }
 };
 
-export const getProductById = async (req, res) => {
-  const { productId } = req.params;
+// POST /api/inventory/intake (Страница 3 -> Кнопка «Далее»)
+export const recordIntake = async (req, res, next) => {
+  try {
+    const { productId, quantity } = req.body;
 
-  if (!mongoose.Types.ObjectId.isValid(productId)) {
-    return res.status(400).json({ message: 'Invalid product ID format' });
+    const productExists = await Product.exists({ _id: productId });
+    if (!productExists) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Указанный товар не существует',
+      });
+    }
+
+    const newIntake = await Intake.create({
+      productId,
+      quantity,
+    });
+
+    return res.status(201).json({
+      status: 'success',
+      message: 'Товар успешно принят',
+      data: newIntake,
+    });
+  } catch (error) {
+    next(error);
   }
-
-  const product = await Product.findById(productId);
-
-  if (!product) {
-    return res.status(404).json({ message: `Product not found` });
-  }
-
-  res.status(200).json(product);
-};
-
-export const createProduct = async (req, res) => {
-  let imageUrl = null;
-
-  if (req.file) {
-    const cloudinaryResult = await saveFileToCloudinary(
-      req.file.buffer,
-      'product',
-    );
-    imageUrl = cloudinaryResult.secure_url;
-  }
-  const product = await Product.create({
-    ...req.body,
-    image: imageUrl,
-    // userId: req.user._id,
-  });
-  res.status(201).json(product);
-};
-
-export const updateProduct = async (req, res) => {
-  const { productId } = req.params;
-
-  const product = await Product.findOneAndUpdate(
-    {
-      _id: productId,
-      userId: req.user._id,
-    },
-    req.body,
-    {
-      new: true,
-    },
-  );
-  if (!product) {
-    throw createHttpError(404, 'Product not found');
-  }
-
-  res.status(200).json(product);
-};
-
-export const deleteProduct = async (req, res) => {
-  const { productId } = req.params;
-
-  const product = await Product.findOneAndDelete({
-    _id: productId,
-    userId: req.user._id,
-  });
-
-  if (!product) {
-    throw createHttpError(404, 'Product not found');
-  }
-
-  res.status(200).json(product);
 };

@@ -1,4 +1,4 @@
-import { Schema, model } from 'mongoose';
+import mongoose, { Schema, model } from 'mongoose';
 
 const categorySchema = new Schema(
   {
@@ -7,7 +7,6 @@ const categorySchema = new Schema(
       required: [true, 'Category title is required'],
       trim: true,
     },
-
     keywords: {
       type: String,
       default: '',
@@ -19,4 +18,4 @@ const categorySchema = new Schema(
   },
 );
 
-export default model('Category', categorySchema);
+export default mongoose.models.Category || model('Category', categorySchema);
