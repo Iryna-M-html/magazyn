@@ -54,4 +54,5 @@ export const createIntakeSchema = Joi.object({
     'any.required': 'productId обязателен',
   }),
   quantity: Joi.number().integer().min(1).default(1),
+  batch: Joi.string().min(1).required(),
 });

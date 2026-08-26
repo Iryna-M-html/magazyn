@@ -27,7 +27,7 @@ export const getProductByBarcode = async (req, res, next) => {
         name: offProduct.name,
         barcode: offProduct.barcode,
         brand: offProduct.brand,
-        imageUrl: offProduct.imageUrl || 'https://via.placeholder.com/150', // Заглушка если нет картинки
+        imageUrl: offProduct.imageUrl || 'https://via.placeholder.com/150', //  если нет картинки
         source: 'OPEN_FOOD_FACTS',
       });
     }
@@ -51,7 +51,7 @@ export const getProductByBarcode = async (req, res, next) => {
 // POST /api/inventory/intake (Страница 3 -> Кнопка «Далее»)
 export const recordIntake = async (req, res, next) => {
   try {
-    const { productId, quantity } = req.body;
+    const { productId, quantity, batch } = req.body;
 
     const productExists = await Product.exists({ _id: productId });
     if (!productExists) {
@@ -64,6 +64,7 @@ export const recordIntake = async (req, res, next) => {
     const newIntake = await Intake.create({
       productId,
       quantity,
+      batch,
     });
 
     return res.status(201).json({
