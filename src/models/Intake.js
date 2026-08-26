@@ -6,6 +6,7 @@ const intakeSchema = new Schema(
     quantity: { type: Number, required: true, default: 1 },
     scannedAt: { type: Date, default: Date.now },
     batch: { type: String, trim: true, default: null },
+    expirationDate: { type: Date, required: true },
   },
   { timestamps: true },
 );

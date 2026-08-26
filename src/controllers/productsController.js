@@ -51,7 +51,7 @@ export const getProductByBarcode = async (req, res, next) => {
 // POST /api/inventory/intake (Страница 3 -> Кнопка «Далее»)
 export const recordIntake = async (req, res, next) => {
   try {
-    const { productId, quantity, batch } = req.body;
+    const { productId, quantity, batch, expirationDate } = req.body;
 
     const productExists = await Product.exists({ _id: productId });
     if (!productExists) {
@@ -65,6 +65,7 @@ export const recordIntake = async (req, res, next) => {
       productId,
       quantity,
       batch,
+      expirationDate,
     });
 
     return res.status(201).json({

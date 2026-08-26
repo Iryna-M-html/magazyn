@@ -55,4 +55,9 @@ export const createIntakeSchema = Joi.object({
   }),
   quantity: Joi.number().integer().min(1).default(1),
   batch: Joi.string().min(1).required(),
+  expirationDate: Joi.date().iso().required().messages({
+    // <-- Добавлена валидация даты
+    'date.format': 'Укажите дату в формате ГГГГ-ММ-ДД',
+    'any.required': 'Срок годности обязателен для заполнения',
+  }),
 });
