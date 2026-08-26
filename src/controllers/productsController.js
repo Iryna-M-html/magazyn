@@ -32,7 +32,6 @@ export const getProductByBarcode = async (req, res, next) => {
       });
     }
 
-    // 3. Возвращаем единый чистый объект для Страницы 3
     return res.status(200).json({
       status: 'success',
       data: {
@@ -72,6 +71,56 @@ export const recordIntake = async (req, res, next) => {
       status: 'success',
       message: 'Товар успешно принят',
       data: newIntake,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const getAllIntakes = async (req, res, next) => {
+  try {
+    const { productId, year, month } = req.query;
+    const filter = {};
+
+    if (productId) {
+      filter.productId = productId;
+    }
+
+    if (year && month) {
+      const yearNum = parseInt(year, 10);
+      const monthNum = parseInt(month, 10) - 1; // В JS месяцы идут от 0 (Январь) до 11 (Декабрь)
+
+      // Начало месяца (например: 2026-09-01T00:00:00.000Z)
+      const startDate = new Date(Date.UTC(yearNum, monthNum, 1, 0, 0, 0));
+      // Конец месяца (например: 2026-09-30T23:59:59.999Z)
+      const endDate = new Date(
+        Date.UTC(yearNum, monthNum + 1, 0, 23, 59, 59, 999),
+      );
+
+      filter.expirationDate = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    } else if (year) {
+      // Если передан только год (выборка за весь год)
+      const yearNum = parseInt(year, 10);
+      const startDate = new Date(Date.UTC(yearNum, 0, 1, 0, 0, 0));
+      const endDate = new Date(Date.UTC(yearNum, 11, 31, 23, 59, 59, 999));
+
+      filter.expirationDate = {
+        $gte: startDate,
+        $lte: endDate,
+      };
+    }
+
+    const intakes = await Intake.find(filter)
+      .populate('productId', 'name barcode brand imageUrl')
+      .sort({ expirationDate: 1 }); // Сортировка по FEFO (раньше истекает — выше в списке)
+
+    return res.status(200).json({
+      status: 'success',
+      amount: intakes.length,
+      data: intakes,
     });
   } catch (error) {
     next(error);

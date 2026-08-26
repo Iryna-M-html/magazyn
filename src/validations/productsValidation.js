@@ -20,7 +20,6 @@ export const createProductSchema = {
     category: Joi.string().regex(objectIdPattern).required().messages({
       'string.pattern.base': 'Некорректный ID категории',
     }),
-    // Опциональные поля
     name: Joi.string().optional(),
     weightOrVolume: Joi.string().optional().allow(''),
   }),
@@ -56,8 +55,12 @@ export const createIntakeSchema = Joi.object({
   quantity: Joi.number().integer().min(1).default(1),
   batch: Joi.string().min(1).required(),
   expirationDate: Joi.date().iso().required().messages({
-    // <-- Добавлена валидация даты
     'date.format': 'Укажите дату в формате ГГГГ-ММ-ДД',
     'any.required': 'Срок годности обязателен для заполнения',
   }),
+});
+export const getIntakesQuerySchema = Joi.object({
+  productId: Joi.string().hex().length(24).optional(),
+  year: Joi.number().integer().min(2020).max(2100).optional(),
+  month: Joi.number().integer().min(1).max(12).optional(),
 });

@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  getAllIntakes,
   getProductByBarcode,
   recordIntake,
 } from '../controllers/productsController.js';
@@ -17,6 +18,7 @@ router.get(
   validateParams(getByBarcodeSchema),
   getProductByBarcode,
 );
+router.get('/intake', getAllIntakes);
 
 // Фиксация приемки (Кнопка «Далее»)
 router.post(
