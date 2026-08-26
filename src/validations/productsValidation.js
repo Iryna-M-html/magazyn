@@ -64,3 +64,19 @@ export const getIntakesQuerySchema = Joi.object({
   year: Joi.number().integer().min(2020).max(2100).optional(),
   month: Joi.number().integer().min(1).max(12).optional(),
 });
+
+export const createManualProductSchema = Joi.object({
+  barcode: Joi.string().trim().min(8).max(14).required().messages({
+    'string.empty': 'Штрихкод обязателен',
+    'string.min': 'Штрихкод должен содержать минимум 8 символов',
+    'string.max': 'Штрихкод не должен превышать 14 символов',
+  }),
+  name: Joi.string().trim().min(2).max(150).required().messages({
+    'string.empty': 'Название товара обязательно',
+    'string.min': 'Название товара должно быть не короче 2 символов',
+  }),
+  brand: Joi.string().trim().allow('', null).optional(),
+  category: Joi.string().trim().allow('', null).optional(),
+  unit: Joi.string().trim().default('шт').optional(),
+  imageUrl: Joi.string().uri().allow('', null).optional(),
+});

@@ -1,6 +1,7 @@
 import { Product } from '../models/Product.js';
 import { Intake } from '../models/Intake.js';
 import { fetchProductFromOFF } from '../services/openFoodFactsService.js';
+import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
 
 // GET /api/products/barcode/:barcode (Страница 2 -> Страница 3)
 export const getProductByBarcode = async (req, res, next) => {
@@ -121,6 +122,59 @@ export const getAllIntakes = async (req, res, next) => {
       status: 'success',
       amount: intakes.length,
       data: intakes,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const createProductManual = async (req, res, next) => {
+  try {
+    const {
+      barcode,
+      name,
+      brand,
+      category,
+      unit,
+      imageUrl: bodyImageUrl,
+    } = req.body;
+
+    const existingProduct = await Product.findOne({ barcode });
+    if (existingProduct) {
+      return res.status(409).json({
+        status: 'error',
+        message: 'Товар с таким штрихкодом уже существует',
+      });
+    }
+
+    let finalImageUrl = bodyImageUrl || '';
+    let cloudinaryPublicId = null;
+
+    // Если загружен файл через form-data (multer)
+    if (req.file) {
+      const cloudinaryResult = await saveFileToCloudinary(
+        req.file.buffer,
+        'products',
+      );
+      finalImageUrl = cloudinaryResult.secure_url;
+      cloudinaryPublicId = cloudinaryResult.public_id;
+    }
+
+    const newProduct = await Product.create({
+      barcode,
+      name,
+      brand: brand || '',
+      category: category || '',
+      unit: unit || 'шт',
+      imageUrl: finalImageUrl,
+      cloudinaryPublicId, // (опционально) сохраняем для легкого удаления в будущем
+      source: 'MANUAL',
+    });
+
+    return res.status(201).json({
+      status: 'success',
+      message: 'Товар успешно создан',
+      data: newProduct,
     });
   } catch (error) {
     next(error);

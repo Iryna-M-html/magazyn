@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import {
+  createProductManual,
   getAllIntakes,
   getProductByBarcode,
   recordIntake,
@@ -8,7 +9,9 @@ import { validateBody, validateParams } from '../middleware/validateBody.js';
 import {
   getByBarcodeSchema,
   createIntakeSchema,
+  createManualProductSchema,
 } from '../validations/productsValidation.js';
+import { upload } from '../middleware/multer.js';
 
 const router = Router();
 
@@ -26,5 +29,11 @@ router.post(
   validateBody(createIntakeSchema),
   recordIntake,
 );
-
+// Ручное добавление товара
+router.post(
+  '/manual',
+  upload.single('imageUrl'),
+  validateBody(createManualProductSchema),
+  createProductManual,
+);
 export default router;

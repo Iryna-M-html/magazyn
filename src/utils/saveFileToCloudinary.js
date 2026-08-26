@@ -8,11 +8,11 @@ cloudinary.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 
-export async function saveFileToCloudinary(buffer, folderName) {
+export async function saveFileToCloudinary(buffer, folderName = 'products') {
   return new Promise((resolve, reject) => {
     const uploadStream = cloudinary.uploader.upload_stream(
       {
-        folder: `sm-app/${folderName}`,
+        folder: `magazyn/${folderName}`, // Указали папку текущего проекта
         resource_type: 'image',
         overwrite: true,
         unique_filename: true,
@@ -21,13 +21,19 @@ export async function saveFileToCloudinary(buffer, folderName) {
       (err, result) => (err ? reject(err) : resolve(result)),
     );
 
-    Readable.from(buffer).pipe(uploadStream);
+    // Добавляем обработку ошибки потока для безопасности
+    const stream = Readable.from(buffer);
+    stream.on('error', (err) => reject(err));
+    stream.pipe(uploadStream);
   });
 }
-export async function deleteFileFromCloudinary(public_id) {
+
+export async function deleteFileFromCloudinary(publicId) {
+  if (!publicId) return null;
+
   return new Promise((resolve, reject) =>
     cloudinary.uploader.destroy(
-      public_id,
+      publicId,
       {
         resource_type: 'image',
         invalidate: true,
