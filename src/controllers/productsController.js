@@ -3,33 +3,33 @@ import { Intake } from '../models/Intake.js';
 import { fetchProductFromOFF } from '../services/openFoodFactsService.js';
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
 
-// GET /api/products/barcode/:barcode (Страница 2 -> Страница 3)
+// 1. Поиск товара по штрихкоду (Локальная база -> OFF / Open Products / Open Beauty)
 export const getProductByBarcode = async (req, res, next) => {
   try {
     const { barcode } = req.params;
 
-    // 1. Ищем в локальной базе
+    // Ищем в локальной базе MongoDB
     let product = await Product.findOne({ barcode });
 
-    // 2. Если в локальной базе нет — ищем во внешнем API OpenFoodFacts
+    // Если в базе нет — ищем во внешних базах (Еда, Вода, Химия, Косметика)
     if (!product) {
-      const offProduct = await fetchProductFromOFF(barcode);
+      const externalProduct = await fetchProductFromOFF(barcode);
 
-      if (!offProduct) {
+      if (!externalProduct) {
         return res.status(404).json({
           status: 'error',
           message:
-            'Товар с таким штрихкодом не найден ни в локальной базе, ни в OpenFoodFacts',
+            'Товар с таким штрихкодом не найден ни в локальной базе, ни во внешних каталогах',
         });
       }
 
-      // Опционально: Кэшируем/сохраняем найденный товар из OFF в нашу локальную БД
+      // Кэшируем найденный товар в базу
       product = await Product.create({
-        name: offProduct.name,
-        barcode: offProduct.barcode,
-        brand: offProduct.brand,
-        imageUrl: offProduct.imageUrl || 'https://via.placeholder.com/150', //  если нет картинки
-        source: 'OPEN_FOOD_FACTS',
+        name: externalProduct.name,
+        barcode: externalProduct.barcode,
+        brand: externalProduct.brand,
+        imageUrl: externalProduct.imageUrl || '',
+        source: externalProduct.source,
       });
     }
 
@@ -41,6 +41,7 @@ export const getProductByBarcode = async (req, res, next) => {
         barcode: product.barcode,
         brand: product.brand,
         imageUrl: product.imageUrl,
+        source: product.source,
       },
     });
   } catch (error) {
@@ -48,86 +49,7 @@ export const getProductByBarcode = async (req, res, next) => {
   }
 };
 
-// POST /api/inventory/intake (Страница 3 -> Кнопка «Далее»)
-export const recordIntake = async (req, res, next) => {
-  try {
-    const { productId, quantity, batch, expirationDate } = req.body;
-
-    const productExists = await Product.exists({ _id: productId });
-    if (!productExists) {
-      return res.status(404).json({
-        status: 'error',
-        message: 'Указанный товар не существует',
-      });
-    }
-
-    const newIntake = await Intake.create({
-      productId,
-      quantity,
-      batch,
-      expirationDate,
-    });
-
-    return res.status(201).json({
-      status: 'success',
-      message: 'Товар успешно принят',
-      data: newIntake,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
-export const getAllIntakes = async (req, res, next) => {
-  try {
-    const { productId, year, month } = req.query;
-    const filter = {};
-
-    if (productId) {
-      filter.productId = productId;
-    }
-
-    if (year && month) {
-      const yearNum = parseInt(year, 10);
-      const monthNum = parseInt(month, 10) - 1; // В JS месяцы идут от 0 (Январь) до 11 (Декабрь)
-
-      // Начало месяца (например: 2026-09-01T00:00:00.000Z)
-      const startDate = new Date(Date.UTC(yearNum, monthNum, 1, 0, 0, 0));
-      // Конец месяца (например: 2026-09-30T23:59:59.999Z)
-      const endDate = new Date(
-        Date.UTC(yearNum, monthNum + 1, 0, 23, 59, 59, 999),
-      );
-
-      filter.expirationDate = {
-        $gte: startDate,
-        $lte: endDate,
-      };
-    } else if (year) {
-      // Если передан только год (выборка за весь год)
-      const yearNum = parseInt(year, 10);
-      const startDate = new Date(Date.UTC(yearNum, 0, 1, 0, 0, 0));
-      const endDate = new Date(Date.UTC(yearNum, 11, 31, 23, 59, 59, 999));
-
-      filter.expirationDate = {
-        $gte: startDate,
-        $lte: endDate,
-      };
-    }
-
-    const intakes = await Intake.find(filter)
-      .populate('productId', 'name barcode brand imageUrl')
-      .sort({ expirationDate: 1 }); // Сортировка по FEFO (раньше истекает — выше в списке)
-
-    return res.status(200).json({
-      status: 'success',
-      amount: intakes.length,
-      data: intakes,
-    });
-  } catch (error) {
-    next(error);
-  }
-};
-
+// 2. Ручное создание товара (с загрузкой фото в Cloudinary)
 export const createProductManual = async (req, res, next) => {
   try {
     const {
@@ -139,18 +61,20 @@ export const createProductManual = async (req, res, next) => {
       imageUrl: bodyImageUrl,
     } = req.body;
 
+    // Проверка на дубликат штрихкода
     const existingProduct = await Product.findOne({ barcode });
     if (existingProduct) {
       return res.status(409).json({
         status: 'error',
-        message: 'Товар с таким штрихкодом уже существует',
+        message: 'Товар с таким штрихкодом уже существует в системе',
+        data: existingProduct,
       });
     }
 
     let finalImageUrl = bodyImageUrl || '';
     let cloudinaryPublicId = null;
 
-    // Если загружен файл через form-data (multer)
+    // Если загружен файл через multer (form-data)
     if (req.file) {
       const cloudinaryResult = await saveFileToCloudinary(
         req.file.buffer,
@@ -167,7 +91,7 @@ export const createProductManual = async (req, res, next) => {
       category: category || '',
       unit: unit || 'шт',
       imageUrl: finalImageUrl,
-      cloudinaryPublicId, // (опционально) сохраняем для легкого удаления в будущем
+      cloudinaryPublicId,
       source: 'MANUAL',
     });
 
@@ -175,6 +99,79 @@ export const createProductManual = async (req, res, next) => {
       status: 'success',
       message: 'Товар успешно создан',
       data: newProduct,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 3. Фиксация приемки товара (сохранение партии и срока годности)
+export const recordIntake = async (req, res, next) => {
+  try {
+    const { productId, quantity, batch, expirationDate } = req.body;
+
+    const productExists = await Product.exists({ _id: productId });
+    if (!productExists) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Указанный товар не существует',
+      });
+    }
+
+    const newIntake = await Intake.create({
+      productId,
+      quantity,
+      batch: batch || null,
+      expirationDate,
+    });
+
+    return res.status(201).json({
+      status: 'success',
+      message: 'Товар успешно принят',
+      data: newIntake,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// 4. Получение списка всех приемок (с фильтрацией по месяцу/году и FEFO-сортировкой)
+export const getAllIntakes = async (req, res, next) => {
+  try {
+    const { productId, year, month } = req.query;
+    const filter = {};
+
+    if (productId) {
+      filter.productId = productId;
+    }
+
+    // Фильтрация по месяцу и году срока годности
+    if (year && month) {
+      const yearNum = parseInt(year, 10);
+      const monthNum = parseInt(month, 10) - 1;
+
+      const startDate = new Date(Date.UTC(yearNum, monthNum, 1, 0, 0, 0));
+      const endDate = new Date(
+        Date.UTC(yearNum, monthNum + 1, 0, 23, 59, 59, 999),
+      );
+
+      filter.expirationDate = { $gte: startDate, $lte: endDate };
+    } else if (year) {
+      const yearNum = parseInt(year, 10);
+      const startDate = new Date(Date.UTC(yearNum, 0, 1, 0, 0, 0));
+      const endDate = new Date(Date.UTC(yearNum, 11, 31, 23, 59, 59, 999));
+
+      filter.expirationDate = { $gte: startDate, $lte: endDate };
+    }
+
+    const intakes = await Intake.find(filter)
+      .populate('productId', 'name barcode brand imageUrl unit')
+      .sort({ expirationDate: 1 }); // Сортировка FEFO (ближайшие к просрочке вверху)
+
+    return res.status(200).json({
+      status: 'success',
+      amount: intakes.length,
+      data: intakes,
     });
   } catch (error) {
     next(error);

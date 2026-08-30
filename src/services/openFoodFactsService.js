@@ -1,43 +1,54 @@
 import axios from 'axios';
 
 export const fetchProductFromOFF = async (barcode) => {
-  try {
-    // В запрос можно добавить свой параметр fields, чтобы OFF отдавал только нужные ключи
-    const url = `https://world.openfoodfacts.org/api/v2/product/${barcode}.json?fields=code,product_name,product_name_pl,brands,image_url,image_front_url`;
+  const domains = [
+    'world.openfoodfacts.org', // Еда, минеральная вода, напитки
+    'world.openproductsfacts.org', // Бытовая химия, бытовые товары
+    'world.openbeautyfacts.org', // Косметика и гигиена
+  ];
 
-    const response = await axios.get(url, {
-      headers: {
-        // Хорошая практика OFF: указывать User-Agent вашего приложения
-        'User-Agent': 'MyInventoryApp/1.0 (contact@example.com)',
-      },
-    });
+  const fields =
+    'code,product_name,product_name_pl,brands,image_url,image_front_url';
 
-    const data = response.data;
+  for (const domain of domains) {
+    try {
+      const url = `https://${domain}/api/v2/product/${barcode}.json?fields=${fields}`;
 
-    // Статус 0 означает, что продукт не найден в базе OpenFoodFacts
-    if (data.status === 0 || !data.product) {
-      return null;
+      const response = await axios.get(url, {
+        headers: {
+          'User-Agent': 'MagazynApp/1.0 (contact@example.com)',
+        },
+        timeout: 3000, // Таймаут 3 сек на каждый сервис
+      });
+
+      const data = response.data;
+
+      if (data.status === 1 && data.product) {
+        const { product } = data;
+
+        return {
+          barcode: data.code || barcode,
+          name:
+            product.product_name_pl ||
+            product.product_name ||
+            'Наименование не указано',
+          brand: product.brands
+            ? product.brands.split(',')[0].trim()
+            : 'Производитель не указан',
+          imageUrl: product.image_front_url || product.image_url || null,
+          source: domain.includes('openfoodfacts')
+            ? 'OPEN_FOOD_FACTS'
+            : 'EXTERNAL_API',
+        };
+      }
+    } catch (error) {
+      if (error.response && error.response.status === 404) {
+        continue;
+      }
+
+      console.warn(`Ошибка при запросе к ${domain}:`, error.message);
     }
-
-    const { product } = data;
-
-    // Нормализация данных: извлекаем названия, бренды и наилучшую картинку
-    return {
-      barcode: data.code || barcode,
-      // Берём локализованное имя (если есть) или стандартное
-      name:
-        product.product_name_pl ||
-        product.product_name ||
-        'Наименование не указано',
-      brand: product.brands || 'Производитель не указан',
-      // Берем лицевое изображение или общее изображение товара
-      imageUrl: product.image_front_url || product.image_url || null,
-    };
-  } catch (error) {
-    if (error.response && error.response.status === 404) {
-      return null;
-    }
-    console.error('Ошибка обращения к OpenFoodFacts API:', error.message);
-    throw new Error('Не удалось получить данные о товаре из внешнего сервиса');
   }
+
+  return null;
 };
