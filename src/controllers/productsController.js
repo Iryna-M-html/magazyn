@@ -30,6 +30,8 @@ export const getProductByBarcode = async (req, res, next) => {
         brand: externalProduct.brand,
         imageUrl: externalProduct.imageUrl || '',
         source: externalProduct.source,
+        productQuantity: externalProduct.productQuantity ?? null,
+        productQuantityUnit: externalProduct.productQuantityUnit || '',
       });
     }
 
@@ -42,6 +44,9 @@ export const getProductByBarcode = async (req, res, next) => {
         brand: product.brand,
         imageUrl: product.imageUrl,
         source: product.source,
+
+        product_quantity: product.productQuantity ?? null,
+        product_quantity_unit: product.productQuantityUnit || '',
       },
     });
   } catch (error) {

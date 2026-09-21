@@ -11,6 +11,8 @@ const productSchema = new Schema(
       enum: ['MANUAL', 'OPEN_FOOD_FACTS'],
       default: 'MANUAL',
     },
+    productQuantity: { type: Number, default: null },
+    productQuantityUnit: { type: String, default: '', trim: true },
   },
   { timestamps: true },
 );
