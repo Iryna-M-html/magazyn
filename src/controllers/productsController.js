@@ -127,7 +127,7 @@ export const recordIntake = async (req, res, next) => {
       productId,
       quantity,
       batch: batch || null,
-      expirationDate,
+      expirationDate: new Date(expirationDate),
     });
 
     return res.status(201).json({
@@ -150,28 +150,48 @@ export const getAllIntakes = async (req, res, next) => {
       filter.productId = productId;
     }
 
-    // Фильтрация по месяцу и году срока годности
-    if (year && month) {
+    // Фильтрация по месяцу и году
+    if (year) {
       const yearNum = parseInt(year, 10);
-      const monthNum = parseInt(month, 10) - 1;
+      let startDate, endDate;
 
-      const startDate = new Date(Date.UTC(yearNum, monthNum, 1, 0, 0, 0));
-      const endDate = new Date(
-        Date.UTC(yearNum, monthNum + 1, 0, 23, 59, 59, 999),
-      );
+      if (month) {
+        const monthNum = parseInt(month, 10) - 1; // 0-11
+        startDate = new Date(Date.UTC(yearNum, monthNum, 1, 0, 0, 0));
+        // Последний день месяца
+        endDate = new Date(Date.UTC(yearNum, monthNum + 1, 0, 23, 59, 59, 999));
+      } else {
+        startDate = new Date(Date.UTC(yearNum, 0, 1, 0, 0, 0));
+        endDate = new Date(Date.UTC(yearNum, 11, 31, 23, 59, 59, 999));
+      }
 
-      filter.expirationDate = { $gte: startDate, $lte: endDate };
-    } else if (year) {
-      const yearNum = parseInt(year, 10);
-      const startDate = new Date(Date.UTC(yearNum, 0, 1, 0, 0, 0));
-      const endDate = new Date(Date.UTC(yearNum, 11, 31, 23, 59, 59, 999));
-
-      filter.expirationDate = { $gte: startDate, $lte: endDate };
+      // Поддерживает фильтрацию как по объектам Date, так и по строкам ISO
+      filter.$or = [
+        {
+          expirationDate: {
+            $gte: startDate,
+            $lte: endDate,
+          },
+        },
+        {
+          expirationDate: {
+            $gte: startDate.toISOString(),
+            $lte: endDate.toISOString(),
+          },
+        },
+        // Если даты в базе записаны только как YYYY-MM-DD
+        {
+          expirationDate: {
+            $gte: startDate.toISOString().split('T')[0],
+            $lte: endDate.toISOString().split('T')[0],
+          },
+        },
+      ];
     }
 
     const intakes = await Intake.find(filter)
       .populate('productId', 'name barcode brand imageUrl unit')
-      .sort({ expirationDate: 1 }); // Сортировка FEFO (ближайшие к просрочке вверху)
+      .sort({ expirationDate: 1 }); // Сортировка FEFO
 
     return res.status(200).json({
       status: 'success',

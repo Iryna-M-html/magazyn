@@ -63,6 +63,7 @@ export const getIntakesQuerySchema = Joi.object({
   productId: Joi.string().hex().length(24).optional(),
   year: Joi.number().integer().min(2020).max(2100).optional(),
   month: Joi.number().integer().min(1).max(12).optional(),
+  expirationDate: Joi.date().iso().optional(),
 });
 
 export const createManualProductSchema = Joi.object({

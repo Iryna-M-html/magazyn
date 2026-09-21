@@ -21,7 +21,7 @@ router.get(
   validateParams(getByBarcodeSchema),
   getProductByBarcode,
 );
-router.get('/intake', getAllIntakes);
+router.get('/inventory/intake', getAllIntakes);
 
 // Фиксация приемки (Кнопка «Далее»)
 router.post(
