@@ -14,7 +14,7 @@ import productsRoutes from './routes/productsRoutes.js';
 import categoriesRoutes from './routes/categoriesRoutes.js';
 import ordersRoutes from './routes/ordersRouter.js';
 import revisionRouter from './routes/revisionRouter.js';
-
+import reportRouter from './routes/reportsRouter.js';
 // import historyFaultRoutes from './routes/historyFaultRoutes.js';
 
 import { authenticate } from './middleware/authenticate.js';
@@ -90,6 +90,7 @@ app.use(userRoutes);
 app.use(productsRoutes);
 app.use(ordersRoutes);
 app.use(revisionRouter);
+app.use(reportRouter);
 app.use(categoriesRoutes);
 
 // app.use(historyFaultRoutes);
