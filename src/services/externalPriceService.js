@@ -171,15 +171,18 @@ export async function fetchExternalProductByEan(barcode) {
      * ============================================
      */
 
+    var test = 1;
+
     for (const product of products) {
       if (!product || typeof product !== 'object') {
         continue;
       }
+      if (test++ > 1) break;
 
       const units = Array.isArray(product.units) ? product.units : [];
 
       let matchedEan = null;
-      let matchedUnit = null;
+      let _matchedUnit = null;
 
       for (const unit of units) {
         const eans = Array.isArray(unit?.eans) ? unit.eans : [];
@@ -191,7 +194,7 @@ export async function fetchExternalProductByEan(barcode) {
 
           if (normalizedEan === cleanBarcode) {
             matchedEan = normalizedEan;
-            matchedUnit = unit;
+            _matchedUnit = unit;
             break;
           }
         }
