@@ -53,6 +53,8 @@ export const createIntakeSchema = Joi.object({
     'any.required': 'productId обязателен',
   }),
   quantity: Joi.number().integer().min(1).default(1),
+  discountedQuantity: Joi.number().integer().min(1).default(0),
+  writtenOffQuantity: Joi.number().integer().min(1).default(0),
   batch: Joi.string().min(1).required(),
   expirationDate: Joi.date().iso().required().messages({
     'date.format': 'Укажите дату в формате ГГГГ-ММ-ДД',
@@ -81,3 +83,17 @@ export const createManualProductSchema = Joi.object({
   unit: Joi.string().trim().default('шт').optional(),
   imageUrl: Joi.string().uri().allow('', null).optional(),
 });
+
+// schema
+
+export const updateIntakeStatusSchema = {
+  params: Joi.object({
+    id: Joi.string().hex().length(24).required(),
+  }),
+
+  body: Joi.object({
+    discountedQuantity: Joi.number().integer().min(0),
+
+    writtenOffQuantity: Joi.number().integer().min(0),
+  }).or('discountedQuantity', 'writtenOffQuantity'),
+};

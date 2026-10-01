@@ -4,14 +4,17 @@ import {
   getAllIntakes,
   getProductByBarcode,
   recordIntake,
+  updateIntake,
 } from '../controllers/productsController.js';
 import { validateBody, validateParams } from '../middleware/validateBody.js';
 import {
   getByBarcodeSchema,
   createIntakeSchema,
   createManualProductSchema,
+  updateIntakeStatusSchema,
 } from '../validations/productsValidation.js';
 import { upload } from '../middleware/multer.js';
+import { celebrate } from 'celebrate';
 
 const router = Router();
 
@@ -23,6 +26,11 @@ router.get(
 );
 router.get('/inventory/intake', getAllIntakes);
 
+router.patch(
+  '/inventory/intake/:id',
+  celebrate(updateIntakeStatusSchema),
+  updateIntake,
+);
 // Фиксация приемки (Кнопка «Далее»)
 router.post(
   '/inventory/intake',

@@ -202,3 +202,61 @@ export const getAllIntakes = async (req, res, next) => {
     next(error);
   }
 };
+export const updateIntake = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    const { discountedQuantity = 0, writtenOffQuantity = 0 } = req.body;
+
+    const intake = await Intake.findById(id);
+
+    if (!intake) {
+      return res.status(404).json({
+        message: 'Intake not found',
+      });
+    }
+
+    // Новые итоговые значения
+    const newDiscountedQuantity =
+      intake.discountedQuantity + discountedQuantity;
+
+    const newWrittenOffQuantity =
+      intake.writtenOffQuantity + writtenOffQuantity;
+
+    // Общее количество, которое уже уценили + списали
+    const usedQuantity = newDiscountedQuantity + newWrittenOffQuantity;
+
+    // Нельзя обработать больше товара, чем есть в партии
+    if (usedQuantity > intake.quantity) {
+      return res.status(400).json({
+        message:
+          'Discounted and written-off quantity cannot exceed intake quantity',
+
+        quantity: intake.quantity,
+
+        currentDiscountedQuantity: intake.discountedQuantity,
+
+        currentWrittenOffQuantity: intake.writtenOffQuantity,
+
+        requestedDiscountedQuantity: discountedQuantity,
+
+        requestedWrittenOffQuantity: writtenOffQuantity,
+
+        remainingQuantity:
+          intake.quantity -
+          (intake.discountedQuantity + intake.writtenOffQuantity),
+      });
+    }
+    intake.discountedQuantity = newDiscountedQuantity;
+    intake.writtenOffQuantity = newWrittenOffQuantity;
+
+    await intake.save();
+
+    return res.status(200).json({
+      message: 'Intake updated successfully',
+      intake,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
