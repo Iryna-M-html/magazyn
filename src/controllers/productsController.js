@@ -1,4 +1,4 @@
-import { Product } from '../models/Product.js';
+import { Product } from '../models/product.js';
 import { Intake } from '../models/Intake.js';
 import { fetchProductFromOFF } from '../services/openFoodFactsService.js';
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
@@ -47,6 +47,46 @@ export const getProductByBarcode = async (req, res, next) => {
 
         product_quantity: product.productQuantity ?? null,
         product_quantity_unit: product.productQuantityUnit || '',
+      },
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+export const updateProductByBarcode = async (req, res, next) => {
+  try {
+    const { barcode } = req.params;
+    const { category, shelfPrice } = req.body;
+
+    const product = await Product.findOne({ barcode });
+
+    if (!product) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Товар с таким штрихкодом не найден',
+      });
+    }
+
+    if (category !== undefined) product.category = category;
+    if (shelfPrice !== undefined) product.shelfPrice = shelfPrice;
+
+    await product.save();
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Информация о товаре успешно обновлена',
+      data: {
+        id: product._id,
+        name: product.name,
+        barcode: product.barcode,
+        brand: product.brand,
+        imageUrl: product.imageUrl,
+        source: product.source,
+        productQuantity: product.productQuantity,
+        productQuantityUnit: product.productQuantityUnit,
+        category: product.category,
+        shelfPrice: product.shelfPrice,
       },
     });
   } catch (error) {

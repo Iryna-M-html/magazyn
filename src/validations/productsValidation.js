@@ -1,5 +1,6 @@
 import { Joi, Segments } from 'celebrate';
 import { isValidObjectId } from 'mongoose';
+import { CATEGORIES } from '../constants/categories.js';
 const objectIdValidator = (value, helpers) => {
   return !isValidObjectId(value) ? helpers.message('Invalid id format') : value;
 };
@@ -10,30 +11,30 @@ export const productIdSchema = {
 };
 
 // Если нет внешнего objectIdValidator, используем валидацию 24-значного HEX
-const objectIdPattern = /^[0-9a-fA-F]{24}$/;
+// const objectIdPattern = /^[0-9a-fA-F]{24}$/;
 
-export const createProductSchema = {
-  [Segments.BODY]: Joi.object({
-    barcode: Joi.string().required().trim(),
-    expirationDate: Joi.date().iso().required(),
-    quantity: Joi.number().integer().min(1).required(),
-    category: Joi.string().regex(objectIdPattern).required().messages({
-      'string.pattern.base': 'Некорректный ID категории',
-    }),
-    name: Joi.string().optional(),
-    weightOrVolume: Joi.string().optional().allow(''),
-  }),
-};
+// export const createProductSchema = {
+//   [Segments.BODY]: Joi.object({
+//     barcode: Joi.string().required().trim(),
+//     expirationDate: Joi.date().iso().required(),
+//     quantity: Joi.number().integer().min(1).required(),
+//     category: Joi.string().regex(objectIdPattern).required().messages({
+//       'string.pattern.base': 'Некорректный ID категории',
+//     }),
+//     name: Joi.string().optional(),
+//     weightOrVolume: Joi.string().optional().allow(''),
+//   }),
+// };
 
-export const updateProductSchema = {
-  ...productIdSchema,
-  [Segments.BODY]: Joi.object({
-    name: Joi.string().min(1).required(),
-    price: Joi.number().required(),
-    image: Joi.string().uri().trim(),
-    category: Joi.string().custom(objectIdValidator).required(),
-  }).min(1),
-};
+// export const updateProductSchema = {
+//   ...productIdSchema,
+//   [Segments.BODY]: Joi.object({
+//     name: Joi.string().min(1).required(),
+//     price: Joi.number().required(),
+//     image: Joi.string().uri().trim(),
+//     category: Joi.string().custom(objectIdValidator).required(),
+//   }).min(1),
+// };
 
 //////////////
 export const getByBarcodeSchema = Joi.object({
@@ -46,6 +47,18 @@ export const getByBarcodeSchema = Joi.object({
       'any.required': 'Штрихкод обязателен',
     }),
 });
+
+export const updateProductByBarcodeSchema = Joi.object({
+  category: Joi.string()
+    .valid(...CATEGORIES)
+    .optional()
+    .messages({
+      'any.only': `Категория должна быть одной из: ${CATEGORIES.join(', ')}`,
+    }),
+  shelfPrice: Joi.number().min(0).optional().messages({
+    'number.min': 'Цена полки не может быть отрицательной',
+  }),
+}).or('category', 'shelfPrice');
 
 export const createIntakeSchema = Joi.object({
   productId: Joi.string().hex().length(24).required().messages({

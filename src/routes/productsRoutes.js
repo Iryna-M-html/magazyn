@@ -5,6 +5,7 @@ import {
   getProductByBarcode,
   recordIntake,
   updateIntake,
+  updateProductByBarcode,
 } from '../controllers/productsController.js';
 import { validateBody, validateParams } from '../middleware/validateBody.js';
 import {
@@ -12,6 +13,7 @@ import {
   createIntakeSchema,
   createManualProductSchema,
   updateIntakeStatusSchema,
+  updateProductByBarcodeSchema,
 } from '../validations/productsValidation.js';
 import { upload } from '../middleware/multer.js';
 import { celebrate } from 'celebrate';
@@ -24,6 +26,15 @@ router.get(
   validateParams(getByBarcodeSchema),
   getProductByBarcode,
 );
+//добавление цены согласно полке
+router.patch(
+  '/products/barcode/:barcode',
+  validateParams(getByBarcodeSchema),
+  validateBody(updateProductByBarcodeSchema),
+  updateProductByBarcode,
+);
+
+//все партии
 router.get('/inventory/intake', getAllIntakes);
 
 router.patch(

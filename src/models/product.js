@@ -1,4 +1,5 @@
 import { Schema, model } from 'mongoose';
+import { CATEGORIES } from '../constants/categories.js';
 
 const productSchema = new Schema(
   {
@@ -13,6 +14,13 @@ const productSchema = new Schema(
     },
     productQuantity: { type: Number, default: null },
     productQuantityUnit: { type: String, default: '', trim: true },
+    category: {
+      type: String,
+      enum: CATEGORIES,
+      default: 'Другое',
+      trim: true,
+    },
+    shelfPrice: { type: Number, default: null, min: 0 },
   },
   { timestamps: true },
 );
