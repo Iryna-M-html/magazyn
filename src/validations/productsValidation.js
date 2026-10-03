@@ -81,6 +81,16 @@ export const getIntakesQuerySchema = Joi.object({
   expirationDate: Joi.date().iso().optional(),
 });
 
+//////
+
+export const getIntakeStatusSchema = {
+  [Segments.PARAMS]: Joi.object({
+    id: Joi.string().custom(objectIdValidator).required().messages({
+      'any.required': 'ID партии обязателен',
+    }),
+  }),
+};
+
 export const createManualProductSchema = Joi.object({
   barcode: Joi.string().trim().min(8).max(14).required().messages({
     'string.empty': 'Штрихкод обязателен',

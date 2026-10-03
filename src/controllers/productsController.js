@@ -300,3 +300,30 @@ export const updateIntake = async (req, res, next) => {
     next(error);
   }
 };
+////////////
+
+export const getIntake = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Ищем приёмку и подтягиваем данные связанного товара
+    const intake = await Intake.findById(id).populate(
+      'productId',
+      'name barcode brand imageUrl category shelfPrice productQuantity productQuantityUnit',
+    );
+
+    if (!intake) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Запись приёмки не найдена',
+      });
+    }
+
+    return res.status(200).json({
+      status: 'success',
+      data: intake,
+    });
+  } catch (error) {
+    next(error);
+  }
+};

@@ -2,6 +2,7 @@ import { Router } from 'express';
 import {
   createProductManual,
   getAllIntakes,
+  getIntake,
   getProductByBarcode,
   recordIntake,
   updateIntake,
@@ -14,6 +15,7 @@ import {
   createManualProductSchema,
   updateIntakeStatusSchema,
   updateProductByBarcodeSchema,
+  getIntakeStatusSchema,
 } from '../validations/productsValidation.js';
 import { upload } from '../middleware/multer.js';
 import { celebrate } from 'celebrate';
@@ -42,6 +44,13 @@ router.patch(
   celebrate(updateIntakeStatusSchema),
   updateIntake,
 );
+
+router.get(
+  '/inventory/intake/:id',
+  celebrate(getIntakeStatusSchema),
+  getIntake,
+);
+
 // Фиксация приемки (Кнопка «Далее»)
 router.post(
   '/inventory/intake',
