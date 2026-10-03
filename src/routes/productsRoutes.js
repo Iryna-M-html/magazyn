@@ -19,6 +19,14 @@ import {
 } from '../validations/productsValidation.js';
 import { upload } from '../middleware/multer.js';
 import { celebrate } from 'celebrate';
+import {
+  createInventoryAudit,
+  getInventoryAudits,
+} from '../controllers/auditContoller.js';
+import {
+  createInventoryAuditSchema,
+  getInventoryAuditsSchema,
+} from '../validations/inventoryAuditValidation.js';
 
 const router = Router();
 
@@ -57,6 +65,21 @@ router.post(
   validateBody(createIntakeSchema),
   recordIntake,
 );
+
+// GET /inventory/intake/:intakeId/audits
+router.get(
+  '/inventory/intake/:intakeId/audits',
+  celebrate(getInventoryAuditsSchema),
+  getInventoryAudits,
+);
+
+// POST /inventory/intake/:intakeId/audits
+router.post(
+  '/inventory/intake/:intakeId/audits',
+  celebrate(createInventoryAuditSchema),
+  createInventoryAudit,
+);
+
 // Ручное добавление товара
 router.post(
   '/manual',
