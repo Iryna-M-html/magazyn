@@ -4,6 +4,7 @@ import bcrypt from 'bcrypt';
 import { createSession, setSessionCookies } from '../services/auth.js';
 import { Session } from '../models/session.js';
 import { toLoginName } from '../utils/loginName.js';
+import { logAction, productLabel } from '../services/auditLog.js';
 
 export const registerUser = async (req, res) => {
   const { role, fullName, email, password, personalCode } = req.body;
@@ -96,12 +97,19 @@ export const loginUser = async (req, res, next) => {
     }
 
     if (!user) {
+      await logAction(req, {
+        action: 'auth.login_failed',
+        user: null,
+        userName: email || `${firstName} ${lastName}`.trim(),
+      });
       throw createHttpError(401, 'Invalid credentials');
     }
 
     await Session.deleteOne({ userId: user._id });
     const newSession = await createSession(user._id);
     setSessionCookies(res, newSession);
+
+    await logAction(req, { action: 'auth.login', user });
 
     return res.status(200).json({
       user: {
@@ -137,6 +145,13 @@ export const changePassword = async (req, res) => {
   user.isFirstLogin = false;
   await user.save();
 
+  await logAction(req, {
+    action: 'auth.password_changed',
+    entityType: 'user',
+    entityId: user._id,
+    entityLabel: user.fullName,
+  });
+
   res.status(200).json({ message: 'Password changed successfully' });
 };
 
@@ -144,6 +159,13 @@ export const logoutUser = async (req, res) => {
   const { sessionId } = req.cookies;
 
   if (sessionId) {
+    const session = await Session.findById(sessionId).catch(() => null);
+
+    if (session) {
+      const user = await User.findById(session.userId);
+      await logAction(req, { action: 'auth.logout', user });
+    }
+
     await Session.deleteOne({ _id: sessionId });
   }
 

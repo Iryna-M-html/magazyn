@@ -1,6 +1,7 @@
 import createHttpError from 'http-errors';
 import bcrypt from 'bcrypt';
 import { generateAccessCode } from '../utils/generators/generateAccessCode.js';
+import { logAction } from '../services/auditLog.js';
 import { User } from '../models/user.js';
 import { clearSessionCookies } from '../services/auth.js';
 import { Session } from '../models/session.js';
@@ -36,6 +37,14 @@ export const createUser = async (req, res) => {
     isFirstLogin: true,
   });
 
+  await logAction(req, {
+    action: 'user.created',
+    entityType: 'user',
+    entityId: user._id,
+    entityLabel: user.fullName,
+    details: { role: user.role },
+  });
+
   res.status(201).json({
     success: true,
     data: { user, accessCode },
@@ -57,6 +66,14 @@ export const resetUserPassword = async (req, res) => {
   await user.save();
 
   await Session.deleteMany({ userId: user._id });
+
+  await logAction(req, {
+    action: 'user.code_reset',
+    entityType: 'user',
+    entityId: user._id,
+    entityLabel: user.fullName,
+    details: { role: user.role },
+  });
 
   res.status(200).json({
     success: true,

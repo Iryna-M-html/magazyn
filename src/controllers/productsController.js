@@ -1,5 +1,6 @@
 import { Product } from '../models/product.js';
 import { Intake } from '../models/Intake.js';
+import { logAction, productLabel } from '../services/auditLog.js';
 import { fetchProductFromOFF } from '../services/openFoodFactsService.js';
 import { saveFileToCloudinary } from '../utils/saveFileToCloudinary.js';
 
@@ -69,10 +70,23 @@ export const updateProductByBarcode = async (req, res, next) => {
       });
     }
 
+    const before = { category: product.category, shelfPrice: product.shelfPrice };
+
     if (category !== undefined) product.category = category;
     if (shelfPrice !== undefined) product.shelfPrice = shelfPrice;
 
     await product.save();
+
+    await logAction(req, {
+      action: 'product.updated',
+      entityType: 'product',
+      entityId: product._id,
+      entityLabel: productLabel(product),
+      changes: [
+        { field: 'category', from: before.category, to: product.category },
+        { field: 'shelfPrice', from: before.shelfPrice, to: product.shelfPrice },
+      ],
+    });
 
     return res.status(200).json({
       status: 'success',
@@ -147,6 +161,19 @@ export const createProductManual = async (req, res, next) => {
       source: 'MANUAL',
     });
 
+    await logAction(req, {
+      action: 'product.created',
+      entityType: 'product',
+      entityId: newProduct._id,
+      entityLabel: productLabel(newProduct),
+      details: {
+        source: 'MANUAL',
+        category: newProduct.category,
+        productQuantity: newProduct.productQuantity,
+        productQuantityUnit: newProduct.productQuantityUnit,
+      },
+    });
+
     return res.status(201).json({
       status: 'success',
       message: 'Товар успешно создан',
@@ -162,7 +189,7 @@ export const recordIntake = async (req, res, next) => {
   try {
     const { productId, quantity, batch, expirationDate, priceNetto } = req.body;
 
-    const productExists = await Product.exists({ _id: productId });
+    const productExists = await Product.findById(productId).select('name barcode');
     if (!productExists) {
       return res.status(404).json({
         status: 'error',
@@ -176,6 +203,19 @@ export const recordIntake = async (req, res, next) => {
       batch: batch || null,
       expirationDate: new Date(expirationDate),
       priceNetto: priceNetto ?? null,
+    });
+
+    await logAction(req, {
+      action: 'intake.created',
+      entityType: 'intake',
+      entityId: newIntake._id,
+      entityLabel: productLabel(productExists),
+      details: {
+        quantity: newIntake.quantity,
+        batch: newIntake.batch,
+        expirationDate: newIntake.expirationDate,
+        priceNetto: newIntake.priceNetto,
+      },
     });
 
     return res.status(201).json({
@@ -298,10 +338,44 @@ export const updateIntake = async (req, res, next) => {
           (intake.discountedQuantity + intake.writtenOffQuantity),
       });
     }
+    const before = {
+      discountedQuantity: intake.discountedQuantity,
+      writtenOffQuantity: intake.writtenOffQuantity,
+    };
+
     intake.discountedQuantity = newDiscountedQuantity;
     intake.writtenOffQuantity = newWrittenOffQuantity;
 
     await intake.save();
+
+    const product = await Product.findById(intake.productId).select('name barcode');
+    const entity = {
+      entityType: 'intake',
+      entityId: intake._id,
+      entityLabel: productLabel(product),
+    };
+
+    if (discountedQuantity > 0) {
+      await logAction(req, {
+        action: 'intake.discounted',
+        ...entity,
+        changes: [
+          { field: 'discountedQuantity', from: before.discountedQuantity, to: newDiscountedQuantity },
+        ],
+        details: { quantity: discountedQuantity, batch: intake.batch },
+      });
+    }
+
+    if (writtenOffQuantity > 0) {
+      await logAction(req, {
+        action: 'intake.written_off',
+        ...entity,
+        changes: [
+          { field: 'writtenOffQuantity', from: before.writtenOffQuantity, to: newWrittenOffQuantity },
+        ],
+        details: { quantity: writtenOffQuantity, batch: intake.batch },
+      });
+    }
 
     return res.status(200).json({
       message: 'Intake updated successfully',
@@ -326,6 +400,8 @@ export const updateIntakePrice = async (req, res, next) => {
       });
     }
 
+    const previousPrice = intake.priceNetto;
+
     intake.priceNetto = priceNetto;
     await intake.save();
 
@@ -334,6 +410,15 @@ export const updateIntakePrice = async (req, res, next) => {
       'productId',
       'name barcode brand imageUrl category shelfPrice productQuantity productQuantityUnit',
     );
+
+    await logAction(req, {
+      action: 'intake.price_changed',
+      entityType: 'intake',
+      entityId: intake._id,
+      entityLabel: productLabel(intake.productId),
+      changes: [{ field: 'priceNetto', from: previousPrice, to: intake.priceNetto }],
+      details: { batch: intake.batch, priceBrutto: intake.priceBrutto },
+    });
 
     return res.status(200).json({
       status: 'success',

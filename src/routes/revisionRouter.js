@@ -6,11 +6,13 @@ import {
 } from '../controllers/revisionController.js';
 import { createRevisionSchema } from '../validations/revisionValidation.js';
 import { validateBody } from '../middleware/validateBody.js';
+import { authenticate } from '../middleware/authenticate.js';
 
 const router = express.Router();
 
 router.post(
   '/revision',
+  authenticate,
   validateBody(createRevisionSchema),
   createOrUpdateRevision,
 );

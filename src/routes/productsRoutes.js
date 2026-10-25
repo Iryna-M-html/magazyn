@@ -21,6 +21,7 @@ import {
 } from '../validations/productsValidation.js';
 import { upload } from '../middleware/multer.js';
 import { celebrate } from 'celebrate';
+import { authenticate } from '../middleware/authenticate.js';
 import {
   createInventoryAudit,
   getInventoryAudits,
@@ -41,6 +42,7 @@ router.get(
 //добавление цены согласно полке
 router.patch(
   '/products/barcode/:barcode',
+  authenticate,
   validateParams(getByBarcodeSchema),
   validateBody(updateProductByBarcodeSchema),
   updateProductByBarcode,
@@ -51,6 +53,7 @@ router.get('/inventory/intake', getAllIntakes);
 
 router.patch(
   '/inventory/intake/:id',
+  authenticate,
   celebrate(updateIntakeStatusSchema),
   updateIntake,
 );
@@ -58,6 +61,7 @@ router.patch(
 // Цена нетто партии (брутто считается по VAT из категории товара)
 router.patch(
   '/inventory/intake/:id/price',
+  authenticate,
   celebrate(updateIntakePriceSchema),
   updateIntakePrice,
 );
@@ -71,6 +75,7 @@ router.get(
 // Фиксация приемки (Кнопка «Далее»)
 router.post(
   '/inventory/intake',
+  authenticate,
   validateBody(createIntakeSchema),
   recordIntake,
 );
@@ -85,6 +90,7 @@ router.get(
 // POST /inventory/intake/:intakeId/audits
 router.post(
   '/inventory/intake/:intakeId/audits',
+  authenticate,
   celebrate(createInventoryAuditSchema),
   createInventoryAudit,
 );
@@ -92,6 +98,7 @@ router.post(
 // Ручное добавление товара
 router.post(
   '/manual',
+  authenticate,
   upload.single('imageUrl'),
   validateBody(createManualProductSchema),
   createProductManual,

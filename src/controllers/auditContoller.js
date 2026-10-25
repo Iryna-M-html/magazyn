@@ -2,6 +2,8 @@
 
 import { Intake } from '../models/Intake.js';
 import InventoryAudit from '../models/InventoryAudit.js';
+import { Product } from '../models/product.js';
+import { logAction, productLabel } from '../services/auditLog.js';
 
 export async function getInventoryAudits(req, res) {
   try {
@@ -56,6 +58,17 @@ export async function createInventoryAudit(req, res, next) {
       difference,
       countedAt: countedAt ? new Date(countedAt) : new Date(),
       note: note || '',
+      createdBy: req.user?._id ?? null,
+    });
+
+    const product = await Product.findById(intake.productId).select('name barcode');
+
+    await logAction(req, {
+      action: 'audit.created',
+      entityType: 'intake',
+      entityId: intake._id,
+      entityLabel: productLabel(product),
+      details: { expectedQuantity, countedQuantity, difference, batch: intake.batch, note: audit.note },
     });
 
     return res.status(201).json({

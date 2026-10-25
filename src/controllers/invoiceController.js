@@ -5,6 +5,7 @@ import {
   matchInOpenFoodFacts,
 } from '../services/productMatchService.js';
 import { parseInvoiceText } from '../utils/invoiceParser.js';
+import { logAction } from '../services/auditLog.js';
 
 // POST /invoices/recognize — фото фактуры (поле invoice) → номер фактуры и строки товаров
 export const recognizeInvoice = async (req, res) => {
@@ -14,6 +15,13 @@ export const recognizeInvoice = async (req, res) => {
 
   const { text, confidence } = await recognizeInvoiceText(req.file.buffer);
   const { invoiceNumber, items } = parseInvoiceText(text);
+
+  await logAction(req, {
+    action: 'invoice.recognized',
+    entityType: 'invoice',
+    entityLabel: invoiceNumber,
+    details: { items: items.length, confidence: Math.round(confidence) },
+  });
 
   res.status(200).json({
     status: 'success',
