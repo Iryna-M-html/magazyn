@@ -12,6 +12,7 @@ import authRoutes from './routes/authRoutes.js';
 import userRoutes from './routes/userRoutes.js';
 import productsRoutes from './routes/productsRoutes.js';
 import categoriesRoutes from './routes/categoriesRoutes.js';
+import invoiceRoutes from './routes/invoiceRoutes.js';
 import ordersRoutes from './routes/ordersRouter.js';
 import revisionRouter from './routes/revisionRouter.js';
 import reportRouter from './routes/reportsRouter.js';
@@ -92,6 +93,7 @@ app.use(ordersRoutes);
 app.use(revisionRouter);
 app.use(reportRouter);
 app.use(categoriesRoutes);
+app.use(invoiceRoutes);
 
 // app.use(historyFaultRoutes);
 
