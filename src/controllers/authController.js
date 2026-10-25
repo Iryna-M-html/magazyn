@@ -3,6 +3,7 @@ import { User } from '../models/user.js';
 import bcrypt from 'bcrypt';
 import { createSession, setSessionCookies } from '../services/auth.js';
 import { Session } from '../models/session.js';
+import { toLoginName } from '../utils/loginName.js';
 
 export const registerUser = async (req, res) => {
   const { role, fullName, email, password, personalCode } = req.body;
@@ -67,21 +68,34 @@ export const refreshUserSession = async (req, res, next) => {
 };
 
 ///login
+// Сотрудники входят по имени, фамилии и коду; пользователи с email — по email и паролю
 export const loginUser = async (req, res, next) => {
   try {
-    const { email, password } = req.body;
+    const { email, firstName, lastName, password } = req.body;
 
-    if (!email || !password) {
-      throw createHttpError(400, 'Email and password are required');
+    let user = null;
+
+    if (email) {
+      const candidate = await User.findOne({ email });
+
+      if (candidate && (await bcrypt.compare(password, candidate.password))) {
+        user = candidate;
+      }
+    } else {
+      // Имена не уникальны — при совпадении пользователь определяется по коду
+      const candidates = await User.find({
+        loginName: toLoginName(`${firstName} ${lastName}`),
+      });
+
+      for (const candidate of candidates) {
+        if (await bcrypt.compare(password, candidate.password)) {
+          user = candidate;
+          break;
+        }
+      }
     }
 
-    const user = await User.findOne({ email });
     if (!user) {
-      throw createHttpError(401, 'Invalid credentials');
-    }
-
-    const isValidPassword = await bcrypt.compare(password, user.password);
-    if (!isValidPassword) {
       throw createHttpError(401, 'Invalid credentials');
     }
 
@@ -92,15 +106,38 @@ export const loginUser = async (req, res, next) => {
     return res.status(200).json({
       user: {
         _id: user._id,
+        firstName: user.firstName,
+        lastName: user.lastName,
         fullName: user.fullName,
         email: user.email,
-        role: user.role, // Здесь будет 'user', 'admin' или 'owner'
+        role: user.role, // 'user' — продавец, 'admin' — администратор, 'owner' — руководитель
       },
       mustChangePassword: user.isFirstLogin || false,
     });
   } catch (error) {
     next(error);
   }
+};
+
+// Смена кода самим пользователем (обязательна после входа с кодом от администратора)
+export const changePassword = async (req, res) => {
+  const { currentPassword, newPassword } = req.body;
+
+  const user = await User.findById(req.user._id);
+
+  if (!(await bcrypt.compare(currentPassword, user.password))) {
+    throw createHttpError(400, 'Current password is incorrect');
+  }
+
+  if (currentPassword === newPassword) {
+    throw createHttpError(400, 'New password must be different');
+  }
+
+  user.password = await bcrypt.hash(newPassword, 10);
+  user.isFirstLogin = false;
+  await user.save();
+
+  res.status(200).json({ message: 'Password changed successfully' });
 };
 
 export const logoutUser = async (req, res) => {

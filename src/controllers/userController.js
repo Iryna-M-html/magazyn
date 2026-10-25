@@ -1,4 +1,6 @@
 import createHttpError from 'http-errors';
+import bcrypt from 'bcrypt';
+import { generateAccessCode } from '../utils/generators/generateAccessCode.js';
 import { User } from '../models/user.js';
 import { clearSessionCookies } from '../services/auth.js';
 import { Session } from '../models/session.js';
@@ -8,6 +10,59 @@ import {
 } from '../utils/saveFileToCloudinary.js';
 
 // import { Session } from '../models/session.js';
+
+// ---------- Администратор: пользователи ----------
+
+export const getAllUsers = async (req, res) => {
+  const users = await User.find().sort({ lastName: 1, firstName: 1, fullName: 1 });
+
+  res.status(200).json({
+    success: true,
+    data: users,
+  });
+};
+
+// Код доступа генерируется автоматически и возвращается один раз — в базе хранится только хеш
+export const createUser = async (req, res) => {
+  const { firstName, lastName, role } = req.body;
+
+  const accessCode = generateAccessCode();
+
+  const user = await User.create({
+    firstName: firstName.trim(),
+    lastName: lastName.trim(),
+    role,
+    password: await bcrypt.hash(accessCode, 10),
+    isFirstLogin: true,
+  });
+
+  res.status(201).json({
+    success: true,
+    data: { user, accessCode },
+  });
+};
+
+// Новый код вместо забытого: пользователь выходит на всех устройствах и при входе задаёт свой код
+export const resetUserPassword = async (req, res) => {
+  const user = await User.findById(req.params.userId);
+
+  if (!user) {
+    throw createHttpError(404, 'User not found');
+  }
+
+  const accessCode = generateAccessCode();
+
+  user.password = await bcrypt.hash(accessCode, 10);
+  user.isFirstLogin = true;
+  await user.save();
+
+  await Session.deleteMany({ userId: user._id });
+
+  res.status(200).json({
+    success: true,
+    data: { user, accessCode },
+  });
+};
 
 export const getProfile = async (req, res) => {
   res.status(200).json({
