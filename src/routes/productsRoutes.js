@@ -6,6 +6,7 @@ import {
   getProductByBarcode,
   recordIntake,
   updateIntake,
+  updateIntakePrice,
   updateProductByBarcode,
 } from '../controllers/productsController.js';
 import { validateBody, validateParams } from '../middleware/validateBody.js';
@@ -14,6 +15,7 @@ import {
   createIntakeSchema,
   createManualProductSchema,
   updateIntakeStatusSchema,
+  updateIntakePriceSchema,
   updateProductByBarcodeSchema,
   getIntakeStatusSchema,
 } from '../validations/productsValidation.js';
@@ -51,6 +53,13 @@ router.patch(
   '/inventory/intake/:id',
   celebrate(updateIntakeStatusSchema),
   updateIntake,
+);
+
+// Цена нетто партии (брутто считается по VAT из категории товара)
+router.patch(
+  '/inventory/intake/:id/price',
+  celebrate(updateIntakePriceSchema),
+  updateIntakePrice,
 );
 
 router.get(

@@ -44,6 +44,7 @@ export const getProductByBarcode = async (req, res, next) => {
         brand: product.brand,
         imageUrl: product.imageUrl,
         source: product.source,
+        category: product.category,
 
         product_quantity: product.productQuantity ?? null,
         product_quantity_unit: product.productQuantityUnit || '',
@@ -159,7 +160,7 @@ export const createProductManual = async (req, res, next) => {
 // 3. Фиксация приемки товара (сохранение партии и срока годности)
 export const recordIntake = async (req, res, next) => {
   try {
-    const { productId, quantity, batch, expirationDate } = req.body;
+    const { productId, quantity, batch, expirationDate, priceNetto } = req.body;
 
     const productExists = await Product.exists({ _id: productId });
     if (!productExists) {
@@ -174,6 +175,7 @@ export const recordIntake = async (req, res, next) => {
       quantity,
       batch: batch || null,
       expirationDate: new Date(expirationDate),
+      priceNetto: priceNetto ?? null,
     });
 
     return res.status(201).json({
@@ -238,7 +240,7 @@ export const getAllIntakes = async (req, res, next) => {
     const intakes = await Intake.find(filter)
       .populate(
         'productId',
-        'name barcode brand imageUrl unit productQuantity productQuantityUnit',
+        'name barcode brand imageUrl unit category productQuantity productQuantityUnit',
       )
       .sort({ expirationDate: 1 }); // Сортировка FEFO
 
@@ -304,6 +306,39 @@ export const updateIntake = async (req, res, next) => {
     return res.status(200).json({
       message: 'Intake updated successfully',
       intake,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+// Изменение цены нетто партии; брутто пересчитывается автоматически (virtual priceBrutto)
+export const updateIntakePrice = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { priceNetto } = req.body;
+
+    const intake = await Intake.findById(id);
+
+    if (!intake) {
+      return res.status(404).json({
+        status: 'error',
+        message: 'Запись приёмки не найдена',
+      });
+    }
+
+    intake.priceNetto = priceNetto;
+    await intake.save();
+
+    // category нужна для расчёта VAT / брутто в ответе
+    await intake.populate(
+      'productId',
+      'name barcode brand imageUrl category shelfPrice productQuantity productQuantityUnit',
+    );
+
+    return res.status(200).json({
+      status: 'success',
+      message: 'Цена партии обновлена',
+      data: intake,
     });
   } catch (error) {
     next(error);

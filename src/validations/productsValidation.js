@@ -74,6 +74,10 @@ export const createIntakeSchema = Joi.object({
     'date.format': 'Укажите дату в формате ГГГГ-ММ-ДД',
     'any.required': 'Срок годности обязателен для заполнения',
   }),
+  priceNetto: Joi.number().min(0).allow(null).optional().messages({
+    'number.base': 'Цена нетто должна быть числом',
+    'number.min': 'Цена нетто не может быть отрицательной',
+  }),
 });
 export const getIntakesQuerySchema = Joi.object({
   productId: Joi.string().hex().length(24).optional(),
@@ -121,6 +125,21 @@ export const createManualProductSchema = Joi.object({
 });
 
 // schema
+
+// PATCH /inventory/intake/:id/price — цена нетто партии (null — убрать цену)
+export const updateIntakePriceSchema = {
+  params: Joi.object({
+    id: Joi.string().hex().length(24).required(),
+  }),
+
+  body: Joi.object({
+    priceNetto: Joi.number().min(0).allow(null).required().messages({
+      'number.base': 'Цена нетто должна быть числом',
+      'number.min': 'Цена нетто не может быть отрицательной',
+      'any.required': 'priceNetto обязателен',
+    }),
+  }),
+};
 
 export const updateIntakeStatusSchema = {
   params: Joi.object({
