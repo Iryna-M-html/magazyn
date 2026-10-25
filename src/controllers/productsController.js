@@ -236,7 +236,10 @@ export const getAllIntakes = async (req, res, next) => {
     }
 
     const intakes = await Intake.find(filter)
-      .populate('productId', 'name barcode brand imageUrl unit')
+      .populate(
+        'productId',
+        'name barcode brand imageUrl unit productQuantity productQuantityUnit',
+      )
       .sort({ expirationDate: 1 }); // Сортировка FEFO
 
     return res.status(200).json({
