@@ -104,6 +104,8 @@ export const createProductManual = async (req, res, next) => {
       category,
       unit,
       imageUrl: bodyImageUrl,
+      productQuantity,
+      productQuantityUnit,
     } = req.body;
 
     // Проверка на дубликат штрихкода
@@ -133,8 +135,12 @@ export const createProductManual = async (req, res, next) => {
       barcode,
       name,
       brand: brand || '',
-      category: category || '',
+      // Пустая строка не входит в enum категорий — тогда берётся значение по умолчанию («Другое»)
+      category: category || undefined,
       unit: unit || 'шт',
+      // Из form-data числа приходят строками
+      productQuantity: productQuantity ? Number(productQuantity) : null,
+      productQuantityUnit: productQuantityUnit || '',
       imageUrl: finalImageUrl,
       cloudinaryPublicId,
       source: 'MANUAL',

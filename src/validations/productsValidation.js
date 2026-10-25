@@ -1,6 +1,7 @@
 import { Joi, Segments } from 'celebrate';
 import { isValidObjectId } from 'mongoose';
 import { CATEGORIES } from '../constants/categories.js';
+import { PRODUCT_QUANTITY_UNITS } from '../constants/units.js';
 const objectIdValidator = (value, helpers) => {
   return !isValidObjectId(value) ? helpers.message('Invalid id format') : value;
 };
@@ -105,6 +106,18 @@ export const createManualProductSchema = Joi.object({
   category: Joi.string().trim().allow('', null).optional(),
   unit: Joi.string().trim().default('шт').optional(),
   imageUrl: Joi.string().uri().allow('', null).optional(),
+  // Вес / объём упаковки — в тех же единицах, что приходят из Open Food Facts
+  productQuantity: Joi.number().positive().allow('', null).optional().messages({
+    'number.base': 'Вес/объём должен быть числом',
+    'number.positive': 'Вес/объём должен быть больше 0',
+  }),
+  productQuantityUnit: Joi.string()
+    .valid(...PRODUCT_QUANTITY_UNITS)
+    .allow('', null)
+    .optional()
+    .messages({
+      'any.only': `Единица измерения должна быть одной из: ${PRODUCT_QUANTITY_UNITS.join(', ')}`,
+    }),
 });
 
 // schema
